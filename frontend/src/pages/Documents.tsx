@@ -36,11 +36,15 @@ const Documents: React.FC = () => {
       const file = e.target.files[0];
 
       // Validate file type
-      const allowedTypes = ['text/plain', 'application/pdf', 'application/msword',
-                           'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      const allowedTypes = ['text/plain', 'application/pdf',
+                           'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                           'text/markdown'];
 
-      if (!allowedTypes.includes(file.type) && !file.name.endsWith('.txt') && !file.name.endsWith('.md')) {
-        setUploadError('Please upload a text file (TXT, PDF, DOC, DOCX, or MD)');
+      const allowedExtensions = ['.txt', '.pdf', '.docx', '.md', '.markdown'];
+      const hasValidExtension = allowedExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+
+      if (!allowedTypes.includes(file.type) && !hasValidExtension) {
+        setUploadError('Please upload a supported file (TXT, PDF, DOCX, or MD). Note: Legacy .doc files are not supported.');
         setSelectedFile(null);
         return;
       }
@@ -68,45 +72,19 @@ const Documents: React.FC = () => {
       setUploading(true);
       setUploadError('');
 
-      const reader = new FileReader();
+      // Upload file directly - backend will handle text extraction
+      await apiService.uploadDocument(selectedFile);
 
-      reader.onload = async (event) => {
-        try {
-          const content = event.target?.result as string;
+      await loadDocuments();
+      setSelectedFile(null);
 
-          await apiService.uploadDocument({
-            filename: selectedFile.name,
-            file_content: content,
-            doc_metadata: {
-              size: selectedFile.size,
-              type: selectedFile.type,
-              uploadedAt: new Date().toISOString()
-            }
-          });
-
-          await loadDocuments();
-          setSelectedFile(null);
-
-          // Reset file input
-          const fileInput = document.getElementById('file-input') as HTMLInputElement;
-          if (fileInput) fileInput.value = '';
-        } catch (err: any) {
-          console.error('Error uploading document:', err);
-          setUploadError(err.response?.data?.detail || 'Failed to upload document');
-        } finally {
-          setUploading(false);
-        }
-      };
-
-      reader.onerror = () => {
-        setUploadError('Failed to read file');
-        setUploading(false);
-      };
-
-      reader.readAsText(selectedFile);
+      // Reset file input
+      const fileInput = document.getElementById('file-input') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
     } catch (err: any) {
-      console.error('Error during upload:', err);
-      setUploadError('An error occurred during upload');
+      console.error('Error uploading document:', err);
+      setUploadError(err.response?.data?.detail || 'Failed to upload document');
+    } finally {
       setUploading(false);
     }
   };
@@ -178,7 +156,7 @@ const Documents: React.FC = () => {
         <div className="upload-section">
           <h2>Upload New Document</h2>
           <p className="upload-description">
-            Upload text documents for RAG-based question answering. Supported formats: TXT, PDF, DOC, DOCX, MD (max 10MB)
+            Upload text documents for RAG-based question answering. Supported formats: TXT, PDF, DOCX, MD (max 10MB)
           </p>
 
           <form onSubmit={handleUpload} className="upload-form">
@@ -189,7 +167,7 @@ const Documents: React.FC = () => {
                 type="file"
                 id="file-input"
                 onChange={handleFileSelect}
-                accept=".txt,.pdf,.doc,.docx,.md"
+                accept=".txt,.pdf,.docx,.md,.markdown"
                 disabled={uploading}
               />
               {selectedFile && (

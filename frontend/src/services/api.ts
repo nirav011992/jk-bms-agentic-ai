@@ -96,8 +96,15 @@ class ApiService {
     return response.data;
   }
 
-  async uploadDocument(data: { filename: string; file_content: string; doc_metadata?: any }): Promise<Document> {
-    const response = await this.api.post('/api/v1/documents/', data);
+  async uploadDocument(file: File): Promise<Document> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await this.api.post('/api/v1/documents/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return response.data;
   }
 

@@ -11,6 +11,7 @@ from app.schemas.document import DocumentCreate, DocumentResponse
 from app.api.dependencies import get_current_active_user
 from app.services.rag_service import rag_service
 from app.core.logging import get_logger
+from app.utils.document_processor import document_processor
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -22,8 +23,22 @@ async def create_document(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Upload a new document for RAG ingestion."""
+    """Create a new document with text content directly (for plain text submissions)."""
     try:
+        # Validate content
+        if not document_data.content or not document_data.content.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Content cannot be empty"
+            )
+
+        # Check for null bytes (invalid UTF-8)
+        if '\x00' in document_data.content:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Content contains invalid characters. If uploading a PDF or binary file, please use the /upload endpoint instead."
+            )
+
         new_document = Document(
             owner_id=current_user.id,
             filename=document_data.filename,
@@ -39,6 +54,8 @@ async def create_document(
         logger.info(f"Document created: {new_document.filename} (ID: {new_document.id})")
         return new_document
 
+    except HTTPException:
+        raise
     except Exception as e:
         await db.rollback()
         logger.error(f"Error creating document: {str(e)}")
@@ -54,16 +71,43 @@ async def upload_document(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Upload a document file."""
+    """Upload a document file and extract text content."""
     try:
-        content = await file.read()
-        content_str = content.decode('utf-8')
+        # Read file content
+        file_content = await file.read()
 
+        # Process document based on file type
+        try:
+            extracted_text, file_format = document_processor.process_document(
+                file_content,
+                file.filename,
+                file.content_type
+            )
+        except ValueError as ve:
+            logger.warning(f"Document processing failed: {str(ve)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(ve)
+            )
+
+        # Validate extracted text
+        if not extracted_text or not extracted_text.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No text content could be extracted from the document"
+            )
+
+        # Create document record
         new_document = Document(
             owner_id=current_user.id,
             filename=file.filename,
-            content=content_str,
-            doc_metadata={"content_type": file.content_type, "size": len(content)},
+            content=extracted_text,
+            doc_metadata={
+                "content_type": file.content_type,
+                "size": len(file_content),
+                "format": file_format,
+                "text_length": len(extracted_text)
+            },
             ingestion_status="pending"
         )
 
@@ -71,9 +115,14 @@ async def upload_document(
         await db.commit()
         await db.refresh(new_document)
 
-        logger.info(f"Document uploaded: {new_document.filename}")
+        logger.info(
+            f"Document uploaded and processed: {new_document.filename} "
+            f"(format: {file_format}, text length: {len(extracted_text)})"
+        )
         return new_document
 
+    except HTTPException:
+        raise
     except Exception as e:
         await db.rollback()
         logger.error(f"Error uploading document: {str(e)}")
@@ -178,6 +227,59 @@ async def delete_document(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete document"
+        )
+
+
+@router.post("/{document_id}/ingest", response_model=DocumentResponse, status_code=status.HTTP_202_ACCEPTED)
+async def ingest_single_document(
+    document_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Trigger ingestion process for a single document."""
+    try:
+        # Get the document
+        result = await db.execute(
+            select(Document).where(
+                Document.id == document_id,
+                Document.owner_id == current_user.id
+            )
+        )
+        document = result.scalar_one_or_none()
+
+        if not document:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Document not found"
+            )
+
+        if document.ingestion_status == "completed":
+            logger.info(f"Document {document_id} already ingested")
+            return document
+
+        # Process the document
+        documents_data = [
+            {"id": document.id, "filename": document.filename, "content": document.content}
+        ]
+
+        rag_service.build_index(documents_data)
+
+        # Update status
+        document.ingestion_status = "completed"
+        await db.commit()
+        await db.refresh(document)
+
+        logger.info(f"Ingested document: {document.filename} (ID: {document.id})")
+        return document
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Error ingesting document {document_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to ingest document"
         )
 
 
