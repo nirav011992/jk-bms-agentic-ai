@@ -36,13 +36,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: bookdb_backend
-    environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/bookdb
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      SECRET_KEY: ${SECRET_KEY:-change-this-secret-key-in-production-min-32-chars}
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
-      DEBUG: ${DEBUG:-False}
+    env_file : 
+      - ./backend/.env
     ports:
       - "8000:8000"
     depends_on:

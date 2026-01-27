@@ -7,7 +7,7 @@ from app.models.user import User
 from app.schemas.qa import QuestionRequest, QuestionResponse
 from app.api.dependencies import get_current_active_user
 from app.services.rag_service import rag_service
-from app.services.llama_service import llama_service
+from app.services.huggingface_service import huggingface_service
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -47,7 +47,7 @@ async def ask_question(
             k=question_data.context_limit
         )
 
-        answer = await llama_service.answer_question(
+        answer = await huggingface_service.answer_question(
             question_data.question,
             context
         )

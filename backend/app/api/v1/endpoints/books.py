@@ -11,7 +11,7 @@ from app.models.book import Book
 from app.models.review import Review
 from app.schemas.book import BookCreate, BookUpdate, BookResponse, BookSummaryResponse
 from app.api.dependencies import get_current_active_user, get_current_admin_user
-from app.services.llama_service import llama_service
+from app.services.huggingface_service import huggingface_service
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -28,7 +28,7 @@ async def create_book(
     try:
         summary = None
         if book_data.content and not book_data.summary:
-            summary = await llama_service.generate_book_summary(
+            summary = await huggingface_service.generate_book_summary(
                 book_data.content,
                 book_data.title,
                 book_data.author
@@ -226,7 +226,7 @@ async def get_book_summary(
                 {"review_text": r.review_text, "rating": r.rating}
                 for r in reviews
             ]
-            review_summary = await llama_service.generate_review_summary(review_data)
+            review_summary = await huggingface_service.generate_review_summary(review_data)
         else:
             review_summary = "No reviews available yet."
 
@@ -256,7 +256,7 @@ async def generate_book_summary(
 ):
     """Generate a summary for given book content."""
     try:
-        summary = await llama_service.generate_book_summary(content, title, author)
+        summary = await huggingface_service.generate_book_summary(content, title, author)
         return {"summary": summary}
 
     except Exception as e:

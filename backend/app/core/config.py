@@ -30,10 +30,11 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # OpenRouter (Llama3)
-    OPENROUTER_API_KEY: str = Field(..., description="OpenRouter API key")
-    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
-    LLAMA_MODEL: str = "meta-llama/llama-3-8b-instruct"
+    # Hugging Face API
+    HUGGINGFACE_API_KEY: str = Field(..., description="Hugging Face API key")
+    HUGGINGFACE_API_URL: str = "https://router.huggingface.co/v1/chat/completions"
+    HUGGINGFACE_ROUTER_URL: str = "https://router.huggingface.co/models"
+    HUGGINGFACE_MODEL: str = "meta-llama/Llama-3.1-8B-Instruct:scaleway"
 
     # Redis
     REDIS_HOST: str = "localhost"
