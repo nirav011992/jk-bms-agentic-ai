@@ -5,21 +5,21 @@ import { BrowserRouter } from 'react-router-dom';
 import Books from './Books';
 import { AuthProvider } from '../context/AuthContext';
 import { apiService } from '../services/api';
-import { Book } from '../types';
+import { Book, User } from '../types';
 
 jest.mock('../services/api');
 
-const mockUser = {
+const mockUser: User = {
   id: 1,
   email: 'test@example.com',
   username: 'testuser',
-  role: 'user' as const,
+  role: 'user',
   is_active: true,
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
 };
 
-const mockAdminUser = { ...mockUser, role: 'admin' as const };
+const mockAdminUser: User = { ...mockUser, role: 'admin' };
 
 const mockBooks: Book[] = [
   {
@@ -45,7 +45,7 @@ const mockBooks: Book[] = [
   },
 ];
 
-const renderBooks = (user = mockUser) => {
+const renderBooks = (user: User = mockUser) => {  
   (apiService.getCurrentUser as jest.Mock).mockResolvedValue(user);
   jest.spyOn(Storage.prototype, 'getItem').mockReturnValue('mock-token');
 
