@@ -58,6 +58,7 @@ jobs:
       - name: Run tests
         working-directory: ./backend
         env:
+          PYTHONPATH: ${{ github.workspace }}/backend
           DATABASE_URL: postgresql+asyncpg://testuser:testpassword@localhost:5432/testdb
           SECRET_KEY: test-secret-key-for-ci
           ALGORITHM: HS256
