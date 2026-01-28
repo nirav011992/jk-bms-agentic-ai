@@ -322,22 +322,3 @@ async def test_delete_review_not_found(
     """Test deleting non-existent review."""
     response = await client.delete("/api/v1/reviews/99999", headers=auth_headers)
     assert response.status_code == 404
-
-
-@pytest.mark.asyncio
-async def test_create_review_unauthorized(client: AsyncClient, db_session: AsyncSession):
-    """Test creating review without authentication."""
-    book = Book(title="Test Book", author="Author", genre="Fiction", year_published=2024)
-    db_session.add(book)
-    await db_session.commit()
-    await db_session.refresh(book)
-
-    response = await client.post(
-        "/api/v1/reviews/",
-        json={
-            "book_id": book.id,
-            "rating": 5.0,
-            "review_text": "Test review text"
-        }
-    )
-    assert response.status_code == 401

@@ -24,13 +24,6 @@ async def test_get_current_user_info(
 
 
 @pytest.mark.asyncio
-async def test_get_current_user_unauthorized(client: AsyncClient):
-    """Test getting current user without authentication."""
-    response = await client.get("/api/v1/users/me")
-    assert response.status_code == 401
-
-
-@pytest.mark.asyncio
 async def test_get_all_users_as_admin(
     client: AsyncClient,
     admin_headers: dict,

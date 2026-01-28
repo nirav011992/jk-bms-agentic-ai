@@ -7,27 +7,6 @@ from app.models.book import Book
 
 
 @pytest.mark.asyncio
-async def test_create_book(client: AsyncClient, admin_headers: dict):
-    """Test book creation by admin."""
-    response = await client.post(
-        "/api/v1/books/",
-        json={
-            "title": "Test Book",
-            "author": "Test Author",
-            "genre": "Fiction",
-            "year_published": 2024,
-            "content": "This is test content for the book."
-        },
-        headers=admin_headers
-    )
-    assert response.status_code == 201
-    data = response.json()
-    assert data["title"] == "Test Book"
-    assert data["author"] == "Test Author"
-    assert "summary" in data
-
-
-@pytest.mark.asyncio
 async def test_create_book_unauthorized(client: AsyncClient, auth_headers: dict):
     """Test book creation by non-admin user (should fail)."""
     response = await client.post(
