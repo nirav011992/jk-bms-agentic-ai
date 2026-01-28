@@ -60,6 +60,7 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}/backend
           DATABASE_URL: postgresql+asyncpg://testuser:testpassword@localhost:5432/testdb
+          DATABASE_TEST_URL: postgresql+asyncpg://testuser:testpassword@localhost:5432/testdb
           SECRET_KEY: test-secret-key-for-ci-minimum-32-characters-long
           ALGORITHM: HS256
           ACCESS_TOKEN_EXPIRE_MINUTES: 30
