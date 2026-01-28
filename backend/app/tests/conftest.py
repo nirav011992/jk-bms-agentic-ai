@@ -3,6 +3,7 @@ import pytest
 import pytest_asyncio
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.pool import NullPool
 from httpx import AsyncClient
 
 from app.main import app
@@ -13,20 +14,25 @@ from app.core.security import get_password_hash
 
 TEST_DATABASE_URL = settings.DATABASE_TEST_URL or "postgresql+asyncpg://postgres:postgres@localhost:5432/bookdb_test"
 
-test_engine = create_async_engine(TEST_DATABASE_URL, echo=False)
-TestSessionLocal = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
 
-
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(scope="function")
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
     """Create a test database session."""
+    # Create engine for this test
+    test_engine = create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=NullPool)
+
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
 
+    TestSessionLocal = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
+
     async with TestSessionLocal() as session:
         yield session
         await session.rollback()
+
+    # Cleanup
+    await test_engine.dispose()
 
 
 @pytest_asyncio.fixture
