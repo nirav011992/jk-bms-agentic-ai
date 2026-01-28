@@ -60,10 +60,11 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}/backend
           DATABASE_URL: postgresql+asyncpg://testuser:testpassword@localhost:5432/testdb
-          SECRET_KEY: test-secret-key-for-ci
+          SECRET_KEY: test-secret-key-for-ci-minimum-32-characters-long
           ALGORITHM: HS256
           ACCESS_TOKEN_EXPIRE_MINUTES: 30
           REFRESH_TOKEN_EXPIRE_DAYS: 7
+          HUGGINGFACE_API_KEY: hf_test_key_for_ci_testing_purposes_only
         run: |
           pytest app/tests/unit/ -v --tb=short --cov=app --cov-report=term-missing
 
