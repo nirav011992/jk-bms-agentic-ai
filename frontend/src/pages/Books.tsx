@@ -36,7 +36,6 @@ const Books: React.FC = () => {
   });
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [generatingSummary, setGeneratingSummary] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [pdfDragActive, setPdfDragActive] = useState(false);
 
@@ -127,34 +126,6 @@ const Books: React.FC = () => {
       return false;
     }
     return true;
-  };
-
-  const handleGenerateSummary = async () => {
-    if (!formData.content?.trim()) {
-      setFormError('Please enter book content to generate a summary');
-      return;
-    }
-
-    if (!formData.title.trim() || !formData.author.trim()) {
-      setFormError('Title and Author are required to generate a summary');
-      return;
-    }
-
-    try {
-      setGeneratingSummary(true);
-      setFormError('');
-      const result = await apiService.generateSummary(
-        formData.title.trim(),
-        formData.author.trim(),
-        formData.content.trim()
-      );
-      setFormData({ ...formData, summary: result.summary });
-    } catch (err: any) {
-      console.error('Error generating summary:', err);
-      setFormError(err.response?.data?.detail || 'Failed to generate summary');
-    } finally {
-      setGeneratingSummary(false);
-    }
   };
 
   const handlePdfDrag = (e: React.DragEvent) => {
