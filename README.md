@@ -126,8 +126,8 @@ jk/
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
-   cd jk
+   git clone https://github.com/nirav011992/jk-bms-agentic-ai.git
+   cd jk-bms-agentic-ai
    ```
 
 2. **Create environment file**
