@@ -8,7 +8,7 @@ A comprehensive full-stack application featuring a Python FastAPI backend with R
 - **User Authentication & Authorization**: JWT-based auth with role management (Admin/User)
 - **Book Management**: CRUD operations for books with auto-generated summaries
 - **Review System**: User reviews with ratings and AI-generated aggregated summaries
-- **AI-Powered Summarization**: Uses Llama3 via OpenRouter for book and review summaries
+- **AI-Powered Summarization**: Uses Llama3 via Hugging Face for book and review summaries
 - **Recommendation Engine**: Hybrid ML model combining collaborative and content-based filtering
 - **RAG System**: Document ingestion with embeddings and vector search for Q&A
 - **Async Operations**: Fully asynchronous database and API operations
@@ -94,7 +94,7 @@ jk/
 - **Database**: PostgreSQL with SQLAlchemy async
 - **Authentication**: JWT with python-jose
 - **AI/ML**:
-  - Llama3 via OpenRouter for text generation
+  - Llama3 via Hugging Face for text generation
   - Sentence Transformers for embeddings
   - FAISS for vector search
   - Scikit-learn for recommendations
@@ -118,7 +118,7 @@ jk/
 - PostgreSQL 15+
 - Redis 7+
 - Docker and Docker Compose (for containerized deployment)
-- OpenRouter API Key (for Llama3 access)
+- Hugging Face API Key (for Llama3 access)
 
 ## Setup Instructions
 
@@ -138,7 +138,7 @@ jk/
 3. **Update environment variables**
    Edit `backend/.env` and set:
    - `SECRET_KEY`: Generate a secure 32+ character secret key
-   - `OPENROUTER_API_KEY`: Your OpenRouter API key
+   - `HUGGINGFACE_API_KEY`: Your Hugging Face API key (see "Hugging Face API Key Setup" section below)
    - Other configuration as needed
 
 4. **Build and run with Docker Compose**
@@ -406,9 +406,9 @@ DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/bookdb
 SECRET_KEY=your-32-character-minimum-secret-key-here
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 
-# OpenRouter (Llama3)
-OPENROUTER_API_KEY=your-openrouter-api-key
-LLAMA_MODEL=meta-llama/llama-3-8b-instruct
+# Hugging Face API
+HUGGINGFACE_API_KEY=hf_your_huggingface_api_key_here
+HUGGINGFACE_MODEL=meta-llama/Llama-3.1-8B-Instruct
 
 # Redis
 REDIS_HOST=localhost
@@ -546,9 +546,45 @@ For issues and questions:
 - Create an issue in the repository
 - Contact: [your-email@example.com]
 
+## Hugging Face API Key Setup
+
+To use the AI-powered features (book summaries, review aggregation, and Q&A), you need a Hugging Face API key:
+
+### Steps to Generate Hugging Face API Key:
+
+1. **Create a Hugging Face Account**
+   - Visit [huggingface.co](https://huggingface.co)
+   - Click "Sign Up" and create a new account
+   - Verify your email address
+
+2. **Accept Model License**
+   - Go to [meta-llama/Llama-3.1-8B-Instruct](https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct)
+   - Click "Access repository"
+   - Read and accept the license terms
+   - Fill in required information if prompted
+
+3. **Generate API Token**
+   - Click on your profile icon (top right)
+   - Go to "Settings"
+   - Click "Access Tokens" in the left sidebar
+   - Click "New token"
+   - Select "Fine-grained tokens" (recommended)
+   - Set permissions for "Read access to contents of all public repos and gists"
+   - Copy the generated token
+
+4. **Add to Environment**
+   - Add the token to your `.env` file:
+     ```
+     HUGGINGFACE_API_KEY=hf_your_token_here
+     ```
+
+5. **Verify Access**
+   - The application will automatically verify access on startup
+   - Check logs for any authentication errors
+
 ## Acknowledgments
 
 - FastAPI for the excellent Python framework
-- OpenRouter for Llama3 API access
+- Hugging Face for Llama3 model access
 - React team for the frontend library
 - Open source community for all dependencies
