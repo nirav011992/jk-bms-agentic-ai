@@ -56,7 +56,7 @@ jobs:
         with:
           context: ./frontend
           file: ./frontend/Dockerfile
-          push: False
+          push: ${{ github.event_name == 'push' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
