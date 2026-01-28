@@ -79,6 +79,26 @@ class ApiService {
     await this.api.delete(`/api/v1/books/${id}`);
   }
 
+  async generateSummary(title: string, author: string, content: string): Promise<{ summary: string }> {
+    const response = await this.api.post('/api/v1/books/generate-summary', null, {
+      params: { title, author, content }
+    });
+    return response.data;
+  }
+
+  async uploadPdf(file: File, title: string, author: string): Promise<{ content: string; summary: string; extracted_chars: number }> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await this.api.post('/api/v1/books/upload-pdf', formData, {
+      params: { title, author },
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  }
+
   // Review endpoints
   async getBookReviews(bookId: number): Promise<Review[]> {
     const response = await this.api.get(`/api/v1/reviews/book/${bookId}`);

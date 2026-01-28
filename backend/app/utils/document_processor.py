@@ -1,8 +1,79 @@
 """Utility functions for processing different document types."""
 import io
-from typing import Tuple
+from typing import Tuple, List
 from PyPDF2 import PdfReader
 from docx import Document as DocxDocument
+
+
+class TextChunker:
+    """Intelligently chunk text while preserving sentence boundaries."""
+
+    @staticmethod
+    def chunk_text(
+        text: str,
+        chunk_size: int = 3500,
+        overlap: int = 200,
+    ) -> List[str]:
+        """
+        Split text into chunks while preserving sentence boundaries.
+
+        Args:
+            text: Text to chunk
+            chunk_size: Target characters per chunk (3000-4000 recommended)
+            overlap: Overlapping characters between chunks for context
+
+        Returns:
+            List of text chunks
+        """
+        if not text or len(text.strip()) == 0:
+            return []
+
+        # Clean text
+        text = text.strip()
+
+        # If text is smaller than chunk size, return as single chunk
+        if len(text) <= chunk_size:
+            return [text]
+
+        chunks = []
+        current_pos = 0
+
+        while current_pos < len(text):
+            # Define chunk boundaries
+            chunk_end = min(current_pos + chunk_size, len(text))
+
+            # Try to find a sentence boundary near the end
+            if chunk_end < len(text):
+                # Look backwards for sentence-ending punctuation
+                search_text = text[current_pos:chunk_end]
+                last_sentence_end = max(
+                    search_text.rfind('. '),
+                    search_text.rfind('! '),
+                    search_text.rfind('? '),
+                )
+
+                if last_sentence_end != -1:
+                    # Found a sentence boundary, use it
+                    chunk_end = current_pos + last_sentence_end + 2
+                else:
+                    # No sentence boundary found, look for paragraph break
+                    last_para_end = search_text.rfind('\n\n')
+                    if last_para_end != -1:
+                        chunk_end = current_pos + last_para_end + 2
+                    # else: use the hard chunk_size limit
+
+            # Extract chunk
+            chunk = text[current_pos:chunk_end].strip()
+            if chunk:
+                chunks.append(chunk)
+
+            # Move position forward (with overlap for context)
+            if chunk_end >= len(text):
+                break
+
+            current_pos = chunk_end - overlap
+
+        return chunks
 
 
 class DocumentProcessor:

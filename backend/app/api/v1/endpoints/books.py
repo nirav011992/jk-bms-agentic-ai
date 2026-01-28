@@ -1,9 +1,11 @@
 """Book management endpoints."""
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
 from sqlalchemy.orm import selectinload
+import PyPDF2
+import io
 
 from app.db.session import get_db
 from app.models.user import User
@@ -16,6 +18,91 @@ from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 router = APIRouter()
+
+
+@router.post("/generate-summary")
+async def generate_book_summary(
+    title: str,
+    author: str,
+    content: str,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Generate a summary for given book content."""
+    try:
+        summary = await huggingface_service.generate_book_summary(content, title, author)
+        return {"summary": summary}
+
+    except Exception as e:
+        logger.error(f"Error generating summary: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate summary"
+        )
+
+
+@router.post("/upload-pdf")
+async def upload_pdf_and_generate_summary(
+    file: UploadFile = File(...),
+    title: str = Query(...),
+    author: str = Query(...),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Upload a PDF file, extract text, and generate a summary."""
+    try:
+        # Validate file type
+        if file.content_type not in ["application/pdf", "application/x-pdf"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only PDF files are allowed"
+            )
+
+        # Read the uploaded file
+        content = await file.read()
+        
+        # Extract text from PDF
+        pdf_text = ""
+        try:
+            pdf_file = io.BytesIO(content)
+            pdf_reader = PyPDF2.PdfReader(pdf_file)
+            
+            for page in pdf_reader.pages:
+                pdf_text += page.extract_text()
+        
+        except Exception as e:
+            logger.error(f"Error extracting PDF text: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to extract text from PDF. Please ensure it's a valid PDF file."
+            )
+
+        if not pdf_text.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No text could be extracted from the PDF. Please check if the PDF contains readable text."
+            )
+
+        # Generate summary from extracted text using intelligent chunking
+        summary = await huggingface_service.generate_chunked_summary(
+            pdf_text,
+            title,
+            author
+        )
+
+        logger.info(f"PDF processed and summary generated for: {title}")
+        return {
+            "content": pdf_text[:5000],  # Return first 5000 chars to avoid huge response
+            "summary": summary,
+            "extracted_chars": len(pdf_text)
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error uploading and processing PDF: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to process PDF file"
+        )
 
 
 @router.post("/", response_model=BookResponse, status_code=status.HTTP_201_CREATED)
@@ -244,24 +331,4 @@ async def get_book_summary(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate book summary"
-        )
-
-
-@router.post("/generate-summary")
-async def generate_book_summary(
-    title: str,
-    author: str,
-    content: str,
-    current_user: User = Depends(get_current_active_user)
-):
-    """Generate a summary for given book content."""
-    try:
-        summary = await huggingface_service.generate_book_summary(content, title, author)
-        return {"summary": summary}
-
-    except Exception as e:
-        logger.error(f"Error generating summary: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to generate summary"
         )

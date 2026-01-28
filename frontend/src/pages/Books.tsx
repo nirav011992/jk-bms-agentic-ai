@@ -12,6 +12,8 @@ interface BookFormData {
   year_published: number;
   isbn?: string;
   description?: string;
+  content?: string;
+  summary?: string;
 }
 
 const Books: React.FC = () => {
@@ -28,10 +30,15 @@ const Books: React.FC = () => {
     genre: '',
     year_published: new Date().getFullYear(),
     isbn: '',
-    description: ''
+    description: '',
+    content: '',
+    summary: ''
   });
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [generatingSummary, setGeneratingSummary] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [pdfDragActive, setPdfDragActive] = useState(false);
 
   const { isAdmin } = useAuth();
 
@@ -69,7 +76,9 @@ const Books: React.FC = () => {
       genre: '',
       year_published: new Date().getFullYear(),
       isbn: '',
-      description: ''
+      description: '',
+      content: '',
+      summary: ''
     });
     setFormError('');
     setEditingBook(null);
@@ -87,7 +96,9 @@ const Books: React.FC = () => {
       genre: book.genre,
       year_published: book.year_published,
       isbn: book.isbn || '',
-      description: book.description || ''
+      description: book.description || '',
+      content: '',
+      summary: book.summary || ''
     });
     setEditingBook(book);
     setShowAddModal(true);
@@ -118,6 +129,85 @@ const Books: React.FC = () => {
     return true;
   };
 
+  const handleGenerateSummary = async () => {
+    if (!formData.content?.trim()) {
+      setFormError('Please enter book content to generate a summary');
+      return;
+    }
+
+    if (!formData.title.trim() || !formData.author.trim()) {
+      setFormError('Title and Author are required to generate a summary');
+      return;
+    }
+
+    try {
+      setGeneratingSummary(true);
+      setFormError('');
+      const result = await apiService.generateSummary(
+        formData.title.trim(),
+        formData.author.trim(),
+        formData.content.trim()
+      );
+      setFormData({ ...formData, summary: result.summary });
+    } catch (err: any) {
+      console.error('Error generating summary:', err);
+      setFormError(err.response?.data?.detail || 'Failed to generate summary');
+    } finally {
+      setGeneratingSummary(false);
+    }
+  };
+
+  const handlePdfDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setPdfDragActive(e.type === 'dragenter' || e.type === 'dragover');
+  };
+
+  const handlePdfDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setPdfDragActive(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      handlePdfFileSelect(files[0]);
+    }
+  };
+
+  const handlePdfFileSelect = async (file: File) => {
+    if (file.type !== 'application/pdf') {
+      setFormError('Please select a valid PDF file');
+      return;
+    }
+
+    if (file.size > 50 * 1024 * 1024) { // 50MB limit
+      setFormError('PDF file size must be less than 50MB');
+      return;
+    }
+
+    if (!formData.title.trim() || !formData.author.trim()) {
+      setFormError('Please fill in Title and Author before uploading a PDF');
+      return;
+    }
+
+    try {
+      setUploadingPdf(true);
+      setFormError('');
+      const result = await apiService.uploadPdf(file, formData.title.trim(), formData.author.trim());
+      setFormData({
+        ...formData,
+        content: result.content,
+        summary: result.summary
+      });
+      setFormError(`✓ PDF processed successfully! Extracted ${result.extracted_chars} characters.`);
+    } catch (err: any) {
+      console.error('Error uploading PDF:', err);
+      setFormError(err.response?.data?.detail || 'Failed to upload and process PDF');
+    } finally {
+      setUploadingPdf(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
@@ -135,7 +225,9 @@ const Books: React.FC = () => {
         genre: formData.genre.trim(),
         year_published: formData.year_published,
         isbn: formData.isbn?.trim() || undefined,
-        description: formData.description?.trim() || undefined
+        description: formData.description?.trim() || undefined,
+        content: formData.content?.trim() || undefined,
+        summary: formData.summary?.trim() || undefined
       };
 
       if (editingBook) {
@@ -339,6 +431,49 @@ const Books: React.FC = () => {
                     rows={4}
                   />
                 </div>
+
+                <div className="form-group">
+                  <label>Or Upload PDF File</label>
+                  <div
+                    className={`pdf-upload-area ${pdfDragActive ? 'active' : ''}`}
+                    onDragEnter={handlePdfDrag}
+                    onDragLeave={handlePdfDrag}
+                    onDragOver={handlePdfDrag}
+                    onDrop={handlePdfDrop}
+                  >
+                    <input
+                      type="file"
+                      id="pdf-upload"
+                      accept=".pdf"
+                      onChange={(e) => e.target.files && handlePdfFileSelect(e.target.files[0])}
+                      style={{ display: 'none' }}
+                      disabled={uploadingPdf}
+                    />
+                    <label htmlFor="pdf-upload" className="pdf-upload-label">
+                      <div className="pdf-upload-content">
+                        <p className="pdf-upload-icon">📄</p>
+                        <p className="pdf-upload-text">
+                          {uploadingPdf ? 'Processing PDF...' : 'Drag and drop your PDF here or click to select'}
+                        </p>
+                        <p className="pdf-upload-hint">Max file size: 50MB</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {formData.summary && (
+                  <div className="form-group">
+                    <label htmlFor="summary">AI Generated Summary</label>
+                    <textarea
+                      id="summary"
+                      value={formData.summary}
+                      onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
+                      rows={4}
+                      readOnly
+                      style={{ backgroundColor: '#f5f5f5' }}
+                    />
+                  </div>
+                )}
 
                 <div className="modal-actions">
                   <button

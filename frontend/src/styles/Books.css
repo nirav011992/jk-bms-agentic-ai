@@ -347,3 +347,53 @@
     gap: 1rem;
   }
 }
+
+/* PDF Upload Styles */
+.pdf-upload-area {
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  padding: 2rem;
+  text-align: center;
+  background-color: #f9fafb;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.pdf-upload-area:hover {
+  border-color: #667eea;
+  background-color: #f0f4ff;
+}
+
+.pdf-upload-area.active {
+  border-color: #667eea;
+  background-color: #eef2ff;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.pdf-upload-label {
+  cursor: pointer;
+  display: block;
+}
+
+.pdf-upload-content {
+  pointer-events: none;
+}
+
+.pdf-upload-icon {
+  font-size: 3rem;
+  margin: 0;
+  margin-bottom: 0.5rem;
+}
+
+.pdf-upload-text {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #374151;
+  margin: 0.5rem 0;
+}
+
+.pdf-upload-hint {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0.5rem 0 0 0;
+}

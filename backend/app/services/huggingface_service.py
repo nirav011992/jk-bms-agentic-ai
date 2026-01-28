@@ -4,6 +4,7 @@ Handles chat, summarization, review analysis, and Q&A.
 """
 
 import httpx
+import asyncio
 from typing import List, Dict
 from tenacity import retry, stop_after_attempt, wait_exponential
 
@@ -129,6 +130,106 @@ Content:
             max_tokens=300,
             temperature=0.5,
         )
+
+    async def generate_chunked_summary(
+        self,
+        book_content: str,
+        title: str,
+        author: str,
+    ) -> str:
+        """
+        Generate summary from large documents using chunking + parallel processing.
+        
+        Process:
+        1. Split content into chunks (preserving boundaries)
+        2. Generate summaries for each chunk in parallel
+        3. Combine chunk summaries into final summary
+        """
+        from app.utils.document_processor import TextChunker
+
+        chunks = TextChunker.chunk_text(book_content, chunk_size=3500, overlap=200)
+
+        if not chunks:
+            return "Unable to generate summary from empty content."
+
+        if len(chunks) == 1:
+            # Single chunk, use regular summary
+            return await self.generate_book_summary(book_content, title, author)
+
+        # Generate summaries for all chunks in parallel
+        try:
+            chunk_summaries = await asyncio.gather(
+                *[
+                    self._summarize_single_chunk(chunk, title, author, i + 1, len(chunks))
+                    for i, chunk in enumerate(chunks)
+                ]
+            )
+
+            # Filter out None values from failed chunks
+            chunk_summaries = [s for s in chunk_summaries if s is not None]
+
+            if not chunk_summaries:
+                raise Exception("All chunks failed to summarize")
+
+            # Combine chunk summaries
+            combined_text = "\n\n".join(chunk_summaries)
+
+            # Generate final summary from chunk summaries
+            final_prompt = f"""
+Provide a comprehensive yet concise final summary (5–7 sentences) based on the following chunk summaries of a book.
+
+Title: {title}
+Author: {author}
+Number of chunks processed: {len(chunks)}
+Successfully summarized chunks: {len(chunk_summaries)}
+
+Chunk Summaries:
+{combined_text}
+
+Create a cohesive final summary that captures the main themes and key points across all chunks.
+"""
+            final_summary = await self.generate_completion(
+                prompt=final_prompt,
+                max_tokens=400,
+                temperature=0.5,
+            )
+
+            logger.info(f"Generated chunked summary for {title} from {len(chunks)} chunks")
+            return final_summary
+
+        except Exception as e:
+            logger.error(f"Chunked summary generation failed: {str(e)}")
+            raise
+
+    async def _summarize_single_chunk(
+        self,
+        chunk: str,
+        title: str,
+        author: str,
+        chunk_num: int,
+        total_chunks: int,
+    ) -> str:
+        """Summarize a single chunk. Returns None if failed."""
+        try:
+            prompt = f"""
+Summarize the following excerpt (chunk {chunk_num}/{total_chunks}) from a book.
+
+Title: {title}
+Author: {author}
+
+Excerpt:
+{chunk}
+
+Provide a 2–3 sentence summary capturing the key points of this section.
+"""
+            return await self.generate_completion(
+                prompt=prompt,
+                max_tokens=150,
+                temperature=0.5,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to summarize chunk {chunk_num}/{total_chunks}: {str(e)}")
+            return None  # Skip this chunk on error
 
     async def generate_review_summary(self, reviews: List[dict]) -> str:
         if not reviews:

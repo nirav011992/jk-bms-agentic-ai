@@ -2,7 +2,6 @@
 .env
 .env.local
 .env.*.local
-.env.docker
 
 # IDE and Editor files
 .vscode/
