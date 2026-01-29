@@ -98,7 +98,6 @@ jk/
   - Sentence Transformers for embeddings
   - FAISS for vector search
   - Scikit-learn for recommendations
-- **Caching**: Redis
 - **Testing**: pytest, pytest-asyncio
 - **Deployment**: Docker, Docker Compose
 
@@ -116,7 +115,6 @@ jk/
 - Python 3.11+
 - Node.js 18+
 - PostgreSQL 15+
-- Redis 7+
 - Docker and Docker Compose (for containerized deployment)
 - Hugging Face API Key (for Llama3 access)
 
@@ -148,7 +146,6 @@ jk/
 
    This will start:
    - PostgreSQL database (port 5432)
-   - Redis cache (port 6379)
    - Backend API (port 8000)
    - Frontend app (port 3000)
 
@@ -410,11 +407,6 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 HUGGINGFACE_API_KEY=hf_your_huggingface_api_key_here
 HUGGINGFACE_MODEL=meta-llama/Llama-3.1-8B-Instruct
 
-# Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
-CACHE_TTL=3600
-
 # Logging
 LOG_LEVEL=INFO
 LOG_FORMAT=json
@@ -458,27 +450,22 @@ For production AWS deployment:
    - Create PostgreSQL RDS instance
    - Update `DATABASE_URL` in environment variables
 
-2. **ElastiCache (Redis)**
-   - Create Redis ElastiCache cluster
-   - Update `REDIS_HOST` and `REDIS_PORT`
-
-3. **ECS/EC2 (Backend)**
+2. **ECS/EC2 (Backend)**
    - Deploy backend container to ECS or EC2
    - Configure security groups and load balancer
 
-4. **S3 + CloudFront (Frontend)**
+3. **S3 + CloudFront (Frontend)**
    - Build frontend: `npm run build`
    - Upload to S3 bucket
    - Configure CloudFront distribution
 
-5. **CI/CD Pipeline**
+4. **CI/CD Pipeline**
    - Set up GitHub Actions or AWS CodePipeline
    - Automate testing and deployment
 
 ## Performance Optimization
 
 - **Database**: Indexed columns for frequent queries
-- **Caching**: Redis for recommendation results
 - **Async Operations**: Non-blocking I/O throughout
 - **Vector Search**: FAISS for efficient similarity search
 - **Connection Pooling**: SQLAlchemy async pool
@@ -508,15 +495,6 @@ docker-compose ps postgres
 
 # Check database logs
 docker-compose logs postgres
-```
-
-### Redis Connection Issues
-```bash
-# Check Redis is running
-docker-compose ps redis
-
-# Test Redis connection
-docker-compose exec redis redis-cli ping
 ```
 
 ### Backend Issues
