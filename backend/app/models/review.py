@@ -16,6 +16,7 @@ class Review(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     review_text = Column(Text, nullable=False)
     rating = Column(Float, nullable=False)
+    sentiment_score = Column(Float, nullable=True)  # Sentiment analysis score (-1 to 1)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 

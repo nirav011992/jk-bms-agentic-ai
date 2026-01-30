@@ -8,6 +8,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Books from './pages/Books';
+import BookDetail from './pages/BookDetail';
+import BorrowHistory from './pages/BorrowHistory';
 import Documents from './pages/Documents';
 import QA from './pages/QA';
 import UserManagement from './pages/UserManagement';
@@ -53,6 +55,22 @@ function AppContent() {
           element={
             <ProtectedRoute>
               <Books />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/books/:id"
+          element={
+            <ProtectedRoute>
+              <BookDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/borrow-history"
+          element={
+            <ProtectedRoute>
+              <BorrowHistory />
             </ProtectedRoute>
           }
         />

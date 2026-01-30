@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/common/Layout';
 import { apiService } from '../services/api';
-import { Book } from '../types';
+import { Book, BookAvailability, Borrow } from '../types';
 import '../styles/Books.css';
 
 interface BookFormData {
@@ -38,12 +39,22 @@ const Books: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [pdfDragActive, setPdfDragActive] = useState(false);
+  const [bookAvailability, setBookAvailability] = useState<Map<number, BookAvailability>>(new Map());
+  const [userBorrows, setUserBorrows] = useState<Borrow[]>([]);
+  const [borrowingBookId, setBorrowingBookId] = useState<number | null>(null);
 
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
 
   useEffect(() => {
     loadBooks();
+    loadUserBorrows();
   }, []);
+
+  useEffect(() => {
+    if (books.length > 0) {
+      loadBooksAvailability();
+    }
+  }, [books]);
 
   const loadBooks = async () => {
     try {
@@ -56,6 +67,70 @@ const Books: React.FC = () => {
       setError('Failed to load books');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadUserBorrows = async () => {
+    try {
+      const borrows = await apiService.getMyBorrows({ status_filter: 'active' });
+      setUserBorrows(borrows);
+    } catch (err: any) {
+      console.error('Error loading user borrows:', err);
+    }
+  };
+
+  const loadBooksAvailability = async () => {
+    try {
+      const availabilityMap = new Map<number, BookAvailability>();
+      await Promise.all(
+        books.map(async (book) => {
+          try {
+            const availability = await apiService.checkBookAvailability(book.id);
+            availabilityMap.set(book.id, availability);
+          } catch (err) {
+            console.error(`Error checking availability for book ${book.id}:`, err);
+          }
+        })
+      );
+      setBookAvailability(availabilityMap);
+    } catch (err: any) {
+      console.error('Error loading books availability:', err);
+    }
+  };
+
+  const getUserActiveBorrow = (bookId: number): Borrow | undefined => {
+    return userBorrows.find(b => b.book_id === bookId && b.status === 'active');
+  };
+
+  const handleBorrowBook = async (bookId: number) => {
+    try {
+      setBorrowingBookId(bookId);
+      setError('');
+      await apiService.borrowBook(bookId);
+      await loadUserBorrows();
+      await loadBooksAvailability();
+      setError(''); // Clear any previous errors
+    } catch (err: any) {
+      console.error('Error borrowing book:', err);
+      setError(err.response?.data?.detail || 'Failed to borrow book');
+    } finally {
+      setBorrowingBookId(null);
+    }
+  };
+
+  const handleReturnBook = async (bookId: number) => {
+    try {
+      setBorrowingBookId(bookId);
+      setError('');
+      await apiService.returnBook(bookId);
+      await loadUserBorrows();
+      await loadBooksAvailability();
+      setError(''); // Clear any previous errors
+    } catch (err: any) {
+      console.error('Error returning book:', err);
+      setError(err.response?.data?.detail || 'Failed to return book');
+    } finally {
+      setBorrowingBookId(null);
     }
   };
 
@@ -288,7 +363,11 @@ const Books: React.FC = () => {
             {filteredBooks.map((book) => (
               <div key={book.id} className="book-item">
                 <div className="book-info">
-                  <h3>{book.title}</h3>
+                  <h3>
+                    <Link to={`/books/${book.id}`} className="book-title-link">
+                      {book.title}
+                    </Link>
+                  </h3>
                   <p className="book-author">by {book.author}</p>
                   <p className="book-meta">{book.genre} • {book.year_published}</p>
                   {book.isbn && <p className="book-isbn">ISBN: {book.isbn}</p>}
@@ -302,6 +381,57 @@ const Books: React.FC = () => {
                     </div>
                   )}
                 </div>
+
+                {/* Borrow/Return Actions for regular users */}
+                {!isAdmin && (
+                  <div className="book-borrow-actions">
+                    {(() => {
+                      const activeBorrow = getUserActiveBorrow(book.id);
+                      const availability = bookAvailability.get(book.id);
+                      const isProcessing = borrowingBookId === book.id;
+
+                      if (activeBorrow) {
+                        // User has borrowed this book - show return button
+                        return (
+                          <div className="borrow-status-section">
+                            <p className="borrowed-badge">You borrowed this book</p>
+                            <p className="due-date">Due: {new Date(activeBorrow.due_date).toLocaleDateString()}</p>
+                            <button
+                              className="btn-return"
+                              onClick={() => handleReturnBook(book.id)}
+                              disabled={isProcessing}
+                            >
+                              {isProcessing ? 'Returning...' : 'Return Book'}
+                            </button>
+                          </div>
+                        );
+                      } else if (availability?.is_available) {
+                        // Book is available - show borrow button
+                        return (
+                          <div className="borrow-status-section">
+                            <p className="available-badge">Available</p>
+                            <button
+                              className="btn-borrow"
+                              onClick={() => handleBorrowBook(book.id)}
+                              disabled={isProcessing}
+                            >
+                              {isProcessing ? 'Borrowing...' : 'Borrow Book'}
+                            </button>
+                          </div>
+                        );
+                      } else if (availability) {
+                        // Book is not available
+                        return (
+                          <div className="borrow-status-section">
+                            <p className="unavailable-badge">Currently Borrowed</p>
+                            <p className="borrow-info">{availability.active_borrows} active borrow(s)</p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
+                )}
 
                 {isAdmin && (
                   <div className="book-actions">

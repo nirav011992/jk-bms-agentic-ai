@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
-import { AuthTokens, LoginCredentials, RegisterData, User, Book, Review, Document, QAResponse } from '../types';
+import { AuthTokens, LoginCredentials, RegisterData, User, Book, Review, Document, QAResponse, Borrow, BorrowHistory, BookAvailability } from '../types';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -79,6 +79,12 @@ class ApiService {
     await this.api.delete(`/api/v1/books/${id}`);
   }
 
+  async getBookSentimentAnalysis(bookId: number): Promise<any> {
+    const response = await this.api.get(`/api/v1/books/${bookId}/analysis`);
+    return response.data;
+  }
+
+  // not used currently
   async generateSummary(title: string, author: string, content: string): Promise<{ summary: string }> {
     const response = await this.api.post('/api/v1/books/generate-summary', null, {
       params: { title, author, content }
@@ -172,6 +178,50 @@ class ApiService {
 
   async updateUser(id: number, data: Partial<User>): Promise<User> {
     const response = await this.api.put(`/api/v1/users/${id}`, data);
+    return response.data;
+  }
+
+  // Borrow endpoints
+  async borrowBook(bookId: number, loanPeriodDays: number = 14): Promise<Borrow> {
+    const response = await this.api.post(`/api/v1/borrows/${bookId}/borrow`, {
+      book_id: bookId,
+      loan_period_days: loanPeriodDays,
+    });
+    return response.data;
+  }
+
+  async returnBook(bookId: number): Promise<Borrow> {
+    const response = await this.api.post(`/api/v1/borrows/${bookId}/return`);
+    return response.data;
+  }
+
+  async getMyBorrows(params?: { skip?: number; limit?: number; status_filter?: string }): Promise<Borrow[]> {
+    const response = await this.api.get('/api/v1/borrows/', { params });
+    return response.data;
+  }
+
+  async getBorrowHistory(): Promise<BorrowHistory> {
+    const response = await this.api.get('/api/v1/borrows/history');
+    return response.data;
+  }
+
+  async getAllBorrows(params?: { skip?: number; limit?: number; status_filter?: string }): Promise<Borrow[]> {
+    const response = await this.api.get('/api/v1/borrows/all', { params });
+    return response.data;
+  }
+
+  async getOverdueBorrows(params?: { skip?: number; limit?: number }): Promise<Borrow[]> {
+    const response = await this.api.get('/api/v1/borrows/overdue', { params });
+    return response.data;
+  }
+
+  async checkBookAvailability(bookId: number): Promise<BookAvailability> {
+    const response = await this.api.get(`/api/v1/borrows/book/${bookId}/availability`);
+    return response.data;
+  }
+
+  async checkUserHasBorrowedBook(userId: number, bookId: number): Promise<boolean> {
+    const response = await this.api.get(`/api/v1/borrows/user/${userId}/has-borrowed/${bookId}`);
     return response.data;
   }
 }

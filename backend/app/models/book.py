@@ -22,6 +22,7 @@ class Book(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     reviews = relationship("Review", back_populates="book", cascade="all, delete-orphan")
+    borrows = relationship("Borrow", back_populates="book", cascade="all, delete-orphan")
 
     __table_args__ = (
         Index('ix_books_genre_year', 'genre', 'year_published'),

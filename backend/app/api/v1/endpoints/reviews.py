@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.models.book import Book
 from app.models.review import Review
+from app.models.borrow import Borrow
 from app.schemas.review import ReviewCreate, ReviewUpdate, ReviewResponse
 from app.api.dependencies import get_current_active_user
 from app.core.logging import get_logger
@@ -48,6 +49,21 @@ async def create_review(
                 detail="You have already reviewed this book"
             )
 
+        # Check if user has borrowed this book (requirement: can only review borrowed books)
+        borrow_check = await db.execute(
+            select(Borrow).where(
+                and_(
+                    Borrow.user_id == current_user.id,
+                    Borrow.book_id == review_data.book_id
+                )
+            )
+        )
+        if not borrow_check.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only review books you have borrowed"
+            )
+
         new_review = Review(
             book_id=review_data.book_id,
             user_id=current_user.id,
@@ -58,6 +74,21 @@ async def create_review(
         db.add(new_review)
         await db.commit()
         await db.refresh(new_review)
+
+        # Perform sentiment analysis asynchronously (don't wait for it)
+        try:
+            from app.services.huggingface_service import huggingface_service
+            sentiment_score = await huggingface_service.analyze_sentiment(
+                review_text=review_data.review_text,
+                rating=review_data.rating
+            )
+            new_review.sentiment_score = sentiment_score
+            await db.commit()
+            await db.refresh(new_review)
+            logger.info(f"Sentiment score {sentiment_score} calculated for review {new_review.id}")
+        except Exception as e:
+            logger.warning(f"Failed to analyze sentiment, continuing without it: {str(e)}")
+            # Continue even if sentiment analysis fails
 
         logger.info(f"Review created for book {review_data.book_id} by user {current_user.id}")
         return new_review
@@ -78,25 +109,26 @@ async def get_book_reviews(
     book_id: int,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    db: AsyncSession = Depends(get_db)
 ):
-    """Get all reviews for a specific book."""
+    """Get all reviews for a specific book (public endpoint)."""
     try:
         result = await db.execute(
             select(Review)
             .where(Review.book_id == book_id)
             .offset(skip)
             .limit(limit)
+            .order_by(Review.created_at.desc())
         )
         reviews = result.scalars().all()
+        logger.info(f"Retrieved {len(reviews)} reviews for book {book_id}")
         return reviews
 
     except Exception as e:
-        logger.error(f"Error retrieving reviews: {str(e)}")
+        logger.error(f"Error retrieving reviews for book {book_id}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve reviews"
+            detail=f"Failed to retrieve reviews: {str(e)}"
         )
 
 

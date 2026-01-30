@@ -284,6 +284,167 @@ Question:
             temperature=0.3,
         )
 
+    # ------------------------------------------------------------------
+    # Sentiment Analysis
+    # ------------------------------------------------------------------
+
+    async def analyze_sentiment(self, review_text: str, rating: float) -> float:
+        """
+        Analyze sentiment of a review and return a score from -1 to 1.
+
+        Args:
+            review_text: The review text to analyze
+            rating: The numerical rating (1-5)
+
+        Returns:
+            float: Sentiment score from -1 (very negative) to 1 (very positive)
+        """
+        try:
+            prompt = f"""
+Analyze the sentiment of the following book review on a scale from -1 to 1:
+- -1: Very negative sentiment
+- 0: Neutral sentiment
+- 1: Very positive sentiment
+
+Review Rating: {rating}/5
+Review Text: "{review_text}"
+
+Respond with ONLY a number between -1 and 1 (e.g., 0.75, -0.3, 0.0).
+Do not include any explanation, just the number.
+"""
+
+            response = await self.generate_completion(
+                prompt=prompt,
+                max_tokens=10,
+                temperature=0.3,
+            )
+
+            # Parse the sentiment score
+            sentiment_score = float(response.strip())
+
+            # Ensure it's within bounds
+            sentiment_score = max(-1.0, min(1.0, sentiment_score))
+
+            logger.info(f"Analyzed sentiment: {sentiment_score} for rating {rating}")
+            return sentiment_score
+
+        except (ValueError, AttributeError) as e:
+            logger.warning(f"Failed to parse sentiment score, using rating-based fallback: {str(e)}")
+            # Fallback: convert rating to sentiment score
+            return self._rating_to_sentiment(rating)
+        except Exception as e:
+            logger.error(f"Sentiment analysis failed: {str(e)}")
+            return self._rating_to_sentiment(rating)
+
+    def _rating_to_sentiment(self, rating: float) -> float:
+        """
+        Convert a 1-5 rating to a -1 to 1 sentiment score.
+
+        Args:
+            rating: Rating from 1-5
+
+        Returns:
+            float: Sentiment score from -1 to 1
+        """
+        # Map 1-5 scale to -1 to 1 scale
+        # 1 -> -1, 2 -> -0.5, 3 -> 0, 4 -> 0.5, 5 -> 1
+        return (rating - 3) / 2.0
+
+    async def aggregate_review_sentiments(
+        self,
+        reviews: List[dict],
+        book_title: str
+    ) -> dict:
+        """
+        Aggregate sentiments from multiple reviews and provide analysis.
+
+        Args:
+            reviews: List of review dictionaries with rating, review_text, sentiment_score
+            book_title: Title of the book being analyzed
+
+        Returns:
+            dict: Aggregated sentiment analysis with scores and summary
+        """
+        if not reviews:
+            return {
+                "average_sentiment": 0.0,
+                "sentiment_distribution": {
+                    "positive": 0,
+                    "neutral": 0,
+                    "negative": 0
+                },
+                "total_reviews": 0,
+                "summary": "No reviews available for this book."
+            }
+
+        # Calculate sentiment distribution
+        sentiments = [r.get('sentiment_score', 0.0) for r in reviews]
+        avg_sentiment = sum(sentiments) / len(sentiments) if sentiments else 0.0
+
+        positive = sum(1 for s in sentiments if s > 0.3)
+        neutral = sum(1 for s in sentiments if -0.3 <= s <= 0.3)
+        negative = sum(1 for s in sentiments if s < -0.3)
+
+        distribution = {
+            "positive": positive,
+            "neutral": neutral,
+            "negative": negative
+        }
+
+        # Generate textual summary of sentiments
+        try:
+            reviews_summary = "\n\n".join(
+                f"Rating: {r['rating']}/5 | Sentiment: {r.get('sentiment_score', 0.0):.2f}\nReview: {r['review_text'][:200]}"
+                for r in reviews[:10]  # Limit to 10 most recent reviews
+            )
+
+            prompt = f"""
+Based on the following sentiment analysis of book reviews for "{book_title}", provide a brief 2-3 sentence summary of the overall reader consensus.
+
+Total Reviews: {len(reviews)}
+Average Sentiment Score: {avg_sentiment:.2f} (range: -1 to 1)
+Distribution: {positive} positive, {neutral} neutral, {negative} negative
+
+Sample Reviews:
+{reviews_summary}
+
+Summarize what readers generally think about this book:
+"""
+
+            summary = await self.generate_completion(
+                prompt=prompt,
+                max_tokens=200,
+                temperature=0.5,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to generate sentiment summary: {str(e)}")
+            summary = self._generate_fallback_summary(avg_sentiment, positive, neutral, negative)
+
+        return {
+            "average_sentiment": round(avg_sentiment, 2),
+            "sentiment_distribution": distribution,
+            "total_reviews": len(reviews),
+            "summary": summary
+        }
+
+    def _generate_fallback_summary(
+        self,
+        avg_sentiment: float,
+        positive: int,
+        neutral: int,
+        negative: int
+    ) -> str:
+        """Generate a simple fallback summary when LLM fails."""
+        if avg_sentiment > 0.5:
+            return f"Readers overwhelmingly enjoyed this book, with {positive} positive reviews highlighting its strengths."
+        elif avg_sentiment > 0:
+            return f"This book received mostly positive feedback from readers, with {positive} positive and {neutral} neutral reviews."
+        elif avg_sentiment > -0.3:
+            return f"Readers had mixed opinions about this book, with {positive} positive, {neutral} neutral, and {negative} negative reviews."
+        else:
+            return f"This book received mostly critical feedback, with {negative} negative reviews pointing out various concerns."
+
 
 # Singleton instance
 huggingface_service = HuggingFaceService()

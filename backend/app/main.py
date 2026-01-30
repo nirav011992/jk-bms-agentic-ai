@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.core.logging import setup_logging, get_logger
 from app.db.session import init_db, close_db
-from app.api.v1.endpoints import auth, books, reviews, users, documents, qa, recommendations
+from app.api.v1.endpoints import auth, books, reviews, users, documents, qa, recommendations, borrows
 
 setup_logging()
 logger = get_logger(__name__)
@@ -43,6 +43,7 @@ app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
 app.include_router(books.router, prefix="/api/v1/books", tags=["Books"])
 app.include_router(reviews.router, prefix="/api/v1/reviews", tags=["Reviews"])
+app.include_router(borrows.router, prefix="/api/v1/borrows", tags=["Borrows"])
 app.include_router(documents.router, prefix="/api/v1/documents", tags=["Documents"])
 app.include_router(qa.router, prefix="/api/v1/qa", tags=["Q&A"])
 app.include_router(recommendations.router, prefix="/api/v1/recommendations", tags=["Recommendations"])

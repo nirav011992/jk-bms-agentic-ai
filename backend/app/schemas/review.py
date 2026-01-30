@@ -26,6 +26,7 @@ class ReviewResponse(ReviewBase):
     id: int
     book_id: int
     user_id: int
+    sentiment_score: Optional[float] = None
     created_at: datetime
     updated_at: datetime
 

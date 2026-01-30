@@ -29,6 +29,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <ul className="nav-menu">
           <li><Link to="/dashboard">Dashboard</Link></li>
           <li><Link to="/books">Books</Link></li>
+          {!isAdmin && <li><Link to="/borrow-history">My Borrows</Link></li>}
           <li><Link to="/documents">Documents</Link></li>
           <li><Link to="/qa">Q&A</Link></li>
           {isAdmin && <li><Link to="/users">Users</Link></li>}

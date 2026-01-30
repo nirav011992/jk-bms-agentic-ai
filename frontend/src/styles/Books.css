@@ -96,6 +96,17 @@
   font-weight: 600;
 }
 
+.book-title-link {
+  color: #1f2937;
+  text-decoration: none;
+  transition: color 0.3s;
+}
+
+.book-title-link:hover {
+  color: #667eea;
+  text-decoration: underline;
+}
+
 .book-author {
   font-size: 0.875rem;
   color: #6b7280;
@@ -145,6 +156,98 @@
   color: #1f2937;
   line-height: 1.6;
   margin: 0;
+}
+
+/* Borrow/Return Section */
+.book-borrow-actions {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.borrow-status-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.borrowed-badge,
+.available-badge,
+.unavailable-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  width: fit-content;
+}
+
+.borrowed-badge {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.available-badge {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.unavailable-badge {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.due-date,
+.borrow-info {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+.btn-borrow,
+.btn-return {
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  border: none;
+  font-size: 0.9rem;
+  width: 100%;
+}
+
+.btn-borrow {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-borrow:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-borrow:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-return {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+.btn-return:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.btn-return:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .book-actions {

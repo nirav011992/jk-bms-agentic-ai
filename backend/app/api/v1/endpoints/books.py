@@ -19,7 +19,7 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 router = APIRouter()
 
-
+# not used cuurently
 @router.post("/generate-summary")
 async def generate_book_summary(
     title: str,
@@ -282,7 +282,7 @@ async def delete_book(
             detail="Failed to delete book"
         )
 
-
+# not used
 @router.get("/{book_id}/summary", response_model=BookSummaryResponse)
 async def get_book_summary(
     book_id: int,
@@ -331,4 +331,83 @@ async def get_book_summary(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate book summary"
+        )
+
+
+@router.get("/{book_id}/analysis")
+async def get_book_sentiment_analysis(
+    book_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Get aggregated sentiment analysis for all reviews of a book.
+
+    Returns:
+        - average_sentiment: Score from -1 (negative) to 1 (positive)
+        - sentiment_distribution: Count of positive/neutral/negative reviews
+        - total_reviews: Total number of reviews analyzed
+        - summary: AI-generated summary of reader consensus
+    """
+    try:
+        # Verify book exists
+        book_result = await db.execute(select(Book).where(Book.id == book_id))
+        book = book_result.scalar_one_or_none()
+
+        if not book:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Book not found"
+            )
+
+        # Get all reviews for this book
+        reviews_result = await db.execute(
+            select(Review).where(Review.book_id == book_id)
+        )
+        reviews = reviews_result.scalars().all()
+
+        if not reviews:
+            return {
+                "book_id": book_id,
+                "book_title": book.title,
+                "average_sentiment": 0.0,
+                "sentiment_distribution": {
+                    "positive": 0,
+                    "neutral": 0,
+                    "negative": 0
+                },
+                "total_reviews": 0,
+                "summary": "No reviews available for this book yet."
+            }
+
+        # Prepare reviews data for sentiment analysis
+        reviews_data = [
+            {
+                "rating": review.rating,
+                "review_text": review.review_text,
+                "sentiment_score": review.sentiment_score or 0.0
+            }
+            for review in reviews
+        ]
+
+        # Get aggregated sentiment analysis
+        from app.services.huggingface_service import huggingface_service
+        analysis = await huggingface_service.aggregate_review_sentiments(
+            reviews=reviews_data,
+            book_title=book.title
+        )
+
+        return {
+            "book_id": book_id,
+            "book_title": book.title,
+            **analysis
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting sentiment analysis: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get sentiment analysis"
         )

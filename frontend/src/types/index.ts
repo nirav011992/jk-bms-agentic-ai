@@ -73,3 +73,35 @@ export interface RegisterData {
   password: string;
   full_name?: string;
 }
+
+export interface Borrow {
+  id: number;
+  user_id: number;
+  book_id: number;
+  borrow_date: string;
+  due_date: string;
+  return_date?: string;
+  status: 'active' | 'returned' | 'overdue';
+  is_overdue: boolean;
+  created_at: string;
+  updated_at: string;
+  book_title?: string;
+  book_author?: string;
+  user_email?: string;
+  user_username?: string;
+}
+
+export interface BorrowHistory {
+  total_borrows: number;
+  active_borrows: number;
+  returned_borrows: number;
+  overdue_borrows: number;
+  borrows: Borrow[];
+}
+
+export interface BookAvailability {
+  book_id: number;
+  is_available: boolean;
+  active_borrows: number;
+  total_borrows: number;
+}

@@ -30,6 +30,7 @@ class User(Base):
 
     reviews = relationship("Review", back_populates="user", cascade="all, delete-orphan")
     documents = relationship("Document", back_populates="owner", cascade="all, delete-orphan")
+    borrows = relationship("Borrow", back_populates="user", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<User(id={self.id}, email={self.email}, role={self.role})>"

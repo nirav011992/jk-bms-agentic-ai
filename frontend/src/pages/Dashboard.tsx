@@ -11,6 +11,7 @@ const Dashboard: React.FC = () => {
     totalDocuments: 0,
     recentBooks: [] as Book[]
   });
+  const [recommendations, setRecommendations] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -32,6 +33,15 @@ const Dashboard: React.FC = () => {
         totalDocuments: documents.length,
         recentBooks: books.slice(0, 5)
       });
+
+      // Load recommendations
+      try {
+        const recommendedBooks = await apiService.getRecommendations(undefined, 6);
+        setRecommendations(recommendedBooks);
+      } catch (err) {
+        console.error('Error loading recommendations:', err);
+        // Continue without recommendations
+      }
     } catch (err: any) {
       console.error('Error loading dashboard:', err);
       setError('Failed to load dashboard data');
@@ -117,6 +127,41 @@ const Dashboard: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* Recommendations Section */}
+        {recommendations.length > 0 && (
+          <div className="section recommendations-section">
+            <div className="section-header">
+              <h2>📚 Recommended for You</h2>
+              <span className="recommendation-badge">AI-Powered</span>
+            </div>
+
+            <div className="recommendations-grid">
+              {recommendations.map((book) => (
+                <div
+                  key={book.id}
+                  className="recommendation-card"
+                  onClick={() => navigate(`/books/${book.id}`)}
+                >
+                  <div className="recommendation-header">
+                    <h3>{book.title}</h3>
+                    <span className="recommendation-icon">✨</span>
+                  </div>
+                  <p className="book-author">by {book.author}</p>
+                  <div className="recommendation-meta">
+                    <span className="meta-badge">{book.genre}</span>
+                    <span className="meta-year">{book.year_published}</span>
+                  </div>
+                  {book.summary && (
+                    <p className="recommendation-summary">
+                      {book.summary.substring(0, 120)}...
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="quick-actions">
           <h2>Quick Actions</h2>
