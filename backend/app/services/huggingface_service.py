@@ -3,6 +3,7 @@ Service for interacting with Hugging Face Chat Completions API (OpenAI-compatibl
 Handles chat, summarization, review analysis, and Q&A.
 """
 
+import hashlib
 import httpx
 import asyncio
 from typing import List, Dict
@@ -10,8 +11,10 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.services.cache_service import get_cache
 
 logger = get_logger(__name__)
+cache = get_cache()
 
 
 class HuggingFaceService:
@@ -116,6 +119,16 @@ class HuggingFaceService:
         title: str,
         author: str,
     ) -> str:
+        # Create cache key
+        content_hash = hashlib.md5(f"{title}:{author}:{book_content[:1000]}".encode()).hexdigest()
+        cache_key = f"summary:book:{content_hash}"
+
+        # Check cache
+        cached_summary = cache.get(cache_key)
+        if cached_summary:
+            logger.info(f"Retrieved cached summary for book: {title}")
+            return cached_summary
+
         prompt = f"""
 Provide a concise summary (3–5 sentences) of the following book.
 
@@ -125,11 +138,17 @@ Author: {author}
 Content:
 {book_content[:3000]}
 """
-        return await self.generate_completion(
+        summary = await self.generate_completion(
             prompt=prompt,
             max_tokens=300,
             temperature=0.5,
         )
+
+        # Cache the result (30 days)
+        cache.set(cache_key, summary, ttl=2592000)
+        logger.info(f"Generated and cached summary for book: {title}")
+
+        return summary
 
     async def generate_chunked_summary(
         self,
@@ -139,12 +158,22 @@ Content:
     ) -> str:
         """
         Generate summary from large documents using chunking + parallel processing.
-        
+
         Process:
         1. Split content into chunks (preserving boundaries)
         2. Generate summaries for each chunk in parallel
         3. Combine chunk summaries into final summary
         """
+        # Create cache key for chunked summary
+        content_hash = hashlib.md5(f"{title}:{author}:{len(book_content)}:{book_content[:500]}".encode()).hexdigest()
+        cache_key = f"summary:chunked:{content_hash}"
+
+        # Check cache
+        cached_summary = cache.get(cache_key)
+        if cached_summary:
+            logger.info(f"Retrieved cached chunked summary for book: {title}")
+            return cached_summary
+
         from app.utils.document_processor import TextChunker
 
         chunks = TextChunker.chunk_text(book_content, chunk_size=3500, overlap=200)
@@ -194,7 +223,10 @@ Create a cohesive final summary that captures the main themes and key points acr
                 temperature=0.5,
             )
 
-            logger.info(f"Generated chunked summary for {title} from {len(chunks)} chunks")
+            # Cache the result (30 days)
+            cache.set(cache_key, final_summary, ttl=2592000)
+            logger.info(f"Generated and cached chunked summary for {title} from {len(chunks)} chunks")
+
             return final_summary
 
         except Exception as e:
@@ -231,9 +263,20 @@ Provide a 2–3 sentence summary capturing the key points of this section.
             logger.warning(f"Failed to summarize chunk {chunk_num}/{total_chunks}: {str(e)}")
             return None  # Skip this chunk on error
 
-    async def generate_review_summary(self, reviews: List[dict]) -> str:
+    async def generate_review_summary(self, reviews: List[dict], book_id: int = None) -> str:
         if not reviews:
             return "No reviews available."
+
+        # Create cache key if book_id provided
+        if book_id:
+            reviews_hash = hashlib.md5(str(sorted([r.get('id', '') for r in reviews])).encode()).hexdigest()
+            cache_key = f"summary:reviews:{book_id}:{reviews_hash}"
+
+            # Check cache
+            cached_summary = cache.get(cache_key)
+            if cached_summary:
+                logger.info(f"Retrieved cached review summary for book {book_id}")
+                return cached_summary
 
         reviews_text = "\n\n".join(
             f"Rating: {r['rating']}/5\nReview: {r['review_text']}"
@@ -251,13 +294,30 @@ Reviews:
 {reviews_text}
 """
 
-        return await self.generate_completion(
+        summary = await self.generate_completion(
             prompt=prompt,
             max_tokens=400,
             temperature=0.5,
         )
 
+        # Cache the result if book_id provided (7 days)
+        if book_id:
+            cache.set(cache_key, summary, ttl=604800)
+            logger.info(f"Generated and cached review summary for book {book_id}")
+
+        return summary
+
     async def answer_question(self, question: str, context: str) -> str:
+        # Create cache key
+        qa_hash = hashlib.md5(f"{question}:{context[:500]}".encode()).hexdigest()
+        cache_key = f"qa:answer:{qa_hash}"
+
+        # Check cache
+        cached_answer = cache.get(cache_key)
+        if cached_answer:
+            logger.info(f"Retrieved cached answer for question: {question[:50]}...")
+            return cached_answer
+
         messages = [
             {
                 "role": "system",
@@ -278,11 +338,17 @@ Question:
             },
         ]
 
-        return await self.generate_chat_completion(
+        answer = await self.generate_chat_completion(
             messages=messages,
             max_tokens=400,
             temperature=0.3,
         )
+
+        # Cache the result (1 hour)
+        cache.set(cache_key, answer, ttl=3600)
+        logger.info(f"Generated and cached answer for question: {question[:50]}...")
+
+        return answer
 
     # ------------------------------------------------------------------
     # Sentiment Analysis
@@ -299,6 +365,16 @@ Question:
         Returns:
             float: Sentiment score from -1 (very negative) to 1 (very positive)
         """
+        # Create cache key for sentiment
+        sentiment_hash = hashlib.md5(f"{review_text}:{rating}".encode()).hexdigest()
+        cache_key = f"sentiment:review:{sentiment_hash}"
+
+        # Check cache
+        cached_sentiment = cache.get(cache_key)
+        if cached_sentiment is not None:
+            logger.info(f"Retrieved cached sentiment score: {cached_sentiment}")
+            return float(cached_sentiment)
+
         try:
             prompt = f"""
 Analyze the sentiment of the following book review on a scale from -1 to 1:
@@ -325,7 +401,10 @@ Do not include any explanation, just the number.
             # Ensure it's within bounds
             sentiment_score = max(-1.0, min(1.0, sentiment_score))
 
-            logger.info(f"Analyzed sentiment: {sentiment_score} for rating {rating}")
+            # Cache the result (7 days)
+            cache.set(cache_key, sentiment_score, ttl=604800)
+            logger.info(f"Analyzed and cached sentiment: {sentiment_score} for rating {rating}")
+
             return sentiment_score
 
         except (ValueError, AttributeError) as e:
@@ -353,7 +432,8 @@ Do not include any explanation, just the number.
     async def aggregate_review_sentiments(
         self,
         reviews: List[dict],
-        book_title: str
+        book_title: str,
+        book_id: int = None
     ) -> dict:
         """
         Aggregate sentiments from multiple reviews and provide analysis.
@@ -361,6 +441,7 @@ Do not include any explanation, just the number.
         Args:
             reviews: List of review dictionaries with rating, review_text, sentiment_score
             book_title: Title of the book being analyzed
+            book_id: Optional book ID for caching
 
         Returns:
             dict: Aggregated sentiment analysis with scores and summary
@@ -376,6 +457,17 @@ Do not include any explanation, just the number.
                 "total_reviews": 0,
                 "summary": "No reviews available for this book."
             }
+
+        # Create cache key if book_id provided
+        if book_id:
+            reviews_hash = hashlib.md5(str(sorted([r.get('id', '') for r in reviews])).encode()).hexdigest()
+            cache_key = f"sentiment:aggregate:{book_id}:{reviews_hash}"
+
+            # Check cache
+            cached_aggregate = cache.get(cache_key)
+            if cached_aggregate:
+                logger.info(f"Retrieved cached aggregated sentiment for book {book_id}")
+                return cached_aggregate
 
         # Calculate sentiment distribution
         sentiments = [r.get('sentiment_score', 0.0) for r in reviews]
@@ -421,12 +513,19 @@ Summarize what readers generally think about this book:
             logger.error(f"Failed to generate sentiment summary: {str(e)}")
             summary = self._generate_fallback_summary(avg_sentiment, positive, neutral, negative)
 
-        return {
+        result = {
             "average_sentiment": round(avg_sentiment, 2),
             "sentiment_distribution": distribution,
             "total_reviews": len(reviews),
             "summary": summary
         }
+
+        # Cache the result if book_id provided (7 days)
+        if book_id:
+            cache.set(cache_key, result, ttl=604800)
+            logger.info(f"Generated and cached aggregated sentiment for book {book_id}")
+
+        return result
 
     def _generate_fallback_summary(
         self,

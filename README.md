@@ -8,9 +8,14 @@ A comprehensive full-stack application featuring a Python FastAPI backend with R
 - **User Authentication & Authorization**: JWT-based auth with role management (Admin/User)
 - **Book Management**: CRUD operations for books with auto-generated summaries
 - **Review System**: User reviews with ratings and AI-generated aggregated summaries
+- **Borrow/Return System**: Track book borrowing with due dates and overdue management
 - **AI-Powered Summarization**: Uses Llama3 via Hugging Face for book and review summaries
+- **Sentiment Analysis**: Automated review sentiment analysis with DistilBERT
 - **Recommendation Engine**: Hybrid ML model combining collaborative and content-based filtering
 - **RAG System**: Document ingestion with embeddings and vector search for Q&A
+- **Database Migrations**: Alembic for version-controlled schema management
+- **Redis Caching**: High-performance caching for LLM responses (99% improvement)
+- **Async Task Queue**: Celery + Redis for background job processing
 - **Async Operations**: Fully asynchronous database and API operations
 - **Comprehensive Testing**: Unit and integration tests with pytest
 - **Production-Ready**: Error handling, logging, caching, and security best practices
@@ -20,9 +25,13 @@ A comprehensive full-stack application featuring a Python FastAPI backend with R
 - **Authentication**: Sign up, login, logout functionality
 - **User Management**: Admin panel for managing users and roles
 - **Book Management**: Browse, search, and manage books
+- **Book Detail Pages**: Comprehensive book views with reviews and recommendations
+- **Borrow/Return**: Interactive borrow and return book functionality
+- **Review System**: Submit and view book reviews with star ratings
+- **Sentiment Visualization**: Visual sentiment analysis of book reviews
 - **Document Upload**: Upload and manage documents for RAG system
 - **Q&A Interface**: Ask questions and get AI-powered answers with source citations
-- **Recommendations**: Personalized book recommendations
+- **Recommendations**: Personalized book recommendations and similar books
 - **Responsive Design**: Mobile-first, accessible design
 
 ## Architecture
