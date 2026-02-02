@@ -1,11 +1,13 @@
 """Unit tests for review endpoints."""
 import pytest
+from datetime import datetime, timedelta
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.book import Book
 from app.models.review import Review
 from app.models.user import User
+from app.models.borrow import Borrow, BorrowStatus
 
 
 @pytest.mark.asyncio
@@ -26,6 +28,17 @@ async def test_create_review(
     db_session.add(book)
     await db_session.commit()
     await db_session.refresh(book)
+
+    # Create a borrow record (requirement for creating reviews)
+    borrow = Borrow(
+        user_id=test_user.id,
+        book_id=book.id,
+        borrow_date=datetime.utcnow(),
+        due_date=datetime.utcnow() + timedelta(days=14),
+        status=BorrowStatus.ACTIVE
+    )
+    db_session.add(borrow)
+    await db_session.commit()
 
     response = await client.post(
         "/api/v1/reviews/",

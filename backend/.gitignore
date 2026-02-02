@@ -94,9 +94,6 @@ dump.rdb
 docs/_build/
 site/
 
-# Alembic
-versions/
-
 # Miscellaneous
 .cache/
 node_modules/

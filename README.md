@@ -15,7 +15,6 @@ A comprehensive full-stack application featuring a Python FastAPI backend with R
 - **RAG System**: Document ingestion with embeddings and vector search for Q&A
 - **Database Migrations**: Alembic for version-controlled schema management
 - **Redis Caching**: High-performance caching for LLM responses (99% improvement)
-- **Async Task Queue**: Celery + Redis for background job processing
 - **Async Operations**: Fully asynchronous database and API operations
 - **Comprehensive Testing**: Unit and integration tests with pytest
 - **Production-Ready**: Error handling, logging, caching, and security best practices

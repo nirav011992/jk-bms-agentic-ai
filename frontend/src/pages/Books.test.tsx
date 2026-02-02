@@ -45,8 +45,9 @@ const mockBooks: Book[] = [
   },
 ];
 
-const renderBooks = (user: User = mockUser) => {  
+const renderBooks = (user: User = mockUser) => {
   (apiService.getCurrentUser as jest.Mock).mockResolvedValue(user);
+  (apiService.getMyBorrows as jest.Mock).mockResolvedValue([]);
   jest.spyOn(Storage.prototype, 'getItem').mockReturnValue('mock-token');
 
   return render(

@@ -50,38 +50,6 @@ services:
       - ./backend:/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-  celery_worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: bookdb_celery_worker
-    env_file:
-      - ./backend/.env.docker
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./backend:/app
-    command: celery -A app.celery_app worker --loglevel=info --concurrency=2
-
-  celery_beat:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: bookdb_celery_beat
-    env_file:
-      - ./backend/.env.docker
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./backend:/app
-    command: celery -A app.celery_app beat --loglevel=info
-
   frontend:
     build:
       context: ./frontend
