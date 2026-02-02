@@ -7,10 +7,10 @@ from sqlalchemy import select
 from app.db.session import get_db
 from app.models.user import User
 from app.models.book import Book
-from app.models.review import Review
 from app.schemas.book import BookResponse
 from app.api.dependencies import get_current_active_user
 from app.ml.recommendation_model import recommendation_model
+from app.ml.model_initializer import retrain_recommendation_model
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -22,50 +22,40 @@ async def train_recommendation_model(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Train the recommendation model with current data."""
+    """
+    Manually trigger recommendation model training with current data.
+
+    Note: The model is automatically trained on application startup.
+    Use this endpoint to retrain after significant data changes.
+    """
     try:
-        books_result = await db.execute(select(Book))
-        books = books_result.scalars().all()
+        # Use the centralized training function
+        training_stats = await retrain_recommendation_model(db)
 
-        books_data = [
-            {
-                "id": book.id,
-                "title": book.title,
-                "author": book.author,
-                "genre": book.genre,
-                "summary": book.summary or ""
+        if training_stats["content_trained"] or training_stats["collaborative_trained"]:
+            logger.info(f"Manual model training completed: {training_stats}")
+            return {
+                "message": "Model trained successfully",
+                "books_count": training_stats["books_count"],
+                "reviews_count": training_stats["reviews_count"],
+                "content_trained": training_stats["content_trained"],
+                "collaborative_trained": training_stats["collaborative_trained"],
+                "errors": training_stats["errors"] if training_stats["errors"] else None
             }
-            for book in books
-        ]
+        else:
+            logger.warning(f"Model training completed with errors: {training_stats}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to train model: {training_stats['errors']}"
+            )
 
-        recommendation_model.train_content_based(books_data)
-
-        reviews_result = await db.execute(select(Review))
-        reviews = reviews_result.scalars().all()
-
-        reviews_data = [
-            {
-                "user_id": review.user_id,
-                "book_id": review.book_id,
-                "rating": review.rating
-            }
-            for review in reviews
-        ]
-
-        recommendation_model.train_collaborative(reviews_data)
-
-        logger.info("Recommendation model trained successfully")
-        return {
-            "message": "Model trained successfully",
-            "books_count": len(books_data),
-            "reviews_count": len(reviews_data)
-        }
-
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error training model: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to train recommendation model"
+            detail=f"Failed to train recommendation model: {str(e)}"
         )
 
 

@@ -7,8 +7,9 @@ from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.core.logging import setup_logging, get_logger
-from app.db.session import init_db, close_db
+from app.db.session import init_db, close_db, AsyncSessionLocal
 from app.api.v1.endpoints import auth, books, reviews, users, documents, qa, recommendations, borrows
+from app.ml.model_initializer import train_recommendation_model_on_startup
 
 setup_logging()
 logger = get_logger(__name__)
@@ -19,7 +20,19 @@ async def lifespan(app: FastAPI):
     """Application lifespan events."""
     logger.info("Starting application...")
     await init_db()
+
+    # Train recommendation model on startup (non-blocking)
+    try:
+        async with AsyncSessionLocal() as db:
+            training_stats = await train_recommendation_model_on_startup(db)
+            logger.info(f"Recommendation model initialization complete: {training_stats}")
+    except Exception as e:
+        # Don't prevent app startup if model training fails
+        logger.error(f"Failed to initialize recommendation model: {str(e)}")
+        logger.warning("Application will continue without trained recommendation model")
+
     yield
+
     logger.info("Shutting down application...")
     await close_db()
 
