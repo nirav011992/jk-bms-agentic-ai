@@ -6,6 +6,7 @@ from sqlalchemy import select, func, desc
 from sqlalchemy.orm import selectinload
 import PyPDF2
 import io
+import re
 
 from app.db.session import get_db
 from app.models.user import User
@@ -19,6 +20,14 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 router = APIRouter()
 
+
+def parse_summary(summary: str) -> str:
+    """Parses the summary to extract the text."""
+    match = re.search(r'text="([^"]*)"', summary)
+    if match:
+        return match.group(1)
+    return summary
+
 # not used cuurently
 @router.post("/generate-summary")
 async def generate_book_summary(
@@ -29,7 +38,8 @@ async def generate_book_summary(
 ):
     """Generate a summary for given book content."""
     try:
-        summary = await huggingface_service.generate_book_summary(content, title, author)
+        raw_summary = await huggingface_service.generate_book_summary(content, title, author)
+        summary = parse_summary(raw_summary)
         return {"summary": summary}
 
     except Exception as e:
@@ -82,11 +92,12 @@ async def upload_pdf_and_generate_summary(
             )
 
         # Generate summary from extracted text using intelligent chunking
-        summary = await huggingface_service.generate_chunked_summary(
+        raw_summary = await huggingface_service.generate_chunked_summary(
             pdf_text,
             title,
             author
         )
+        summary = parse_summary(raw_summary)
 
         logger.info(f"PDF processed and summary generated for: {title}")
         return {
@@ -115,11 +126,12 @@ async def create_book(
     try:
         summary = None
         if book_data.content and not book_data.summary:
-            summary = await huggingface_service.generate_book_summary(
+            raw_summary = await huggingface_service.generate_book_summary(
                 book_data.content,
                 book_data.title,
                 book_data.author
             )
+            summary = parse_summary(raw_summary)
         else:
             summary = book_data.summary
 
